@@ -8,4 +8,10 @@ export default defineNuxtConfig({
       '@tailwindcss/postcss': {},
     },
   },
+  components: [
+    {
+      path: '@/components',
+      pathPrefix: false,
+    },
+  ],
 })
