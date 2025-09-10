@@ -15,11 +15,14 @@
           </NuxtLink>
 
           <!-- 데스크톱 네비 -->
-          <nav class="hidden md:flex items-center gap-8">
-            <NavItem label="ACC"         to="/products?category=acc"        :active="isActive('acc')" />
-            <NavItem label="BAG"         to="/products?category=bag"        :active="isActive('bag')" />
-            <NavItem label="STATIONERY"  to="/products?category=stationery" :active="isActive('stationery')" />
-            <NavItem label="WALLET"      to="/products?category=wallet"     :active="isActive('wallet')" />
+          <nav v-if="categories && categories.length > 0" class="hidden md:flex items-center gap-8">
+            <NavItem 
+              v-for="category in categories" 
+              :key="category.categoryId"
+              :label="category?.categoryName?.toUpperCase() || ''" 
+              :to="`/products?category=${category?.categoryName?.toLowerCase() || ''}`" 
+              :active="isActive(category?.categoryName?.toLowerCase() || '')" 
+            />
           </nav>
 
           <!-- 우측 액션 -->
@@ -70,10 +73,14 @@
         >
           <div v-if="open" id="mobile-menu" class="md:hidden pb-4">
             <div class="grid gap-1 rounded-xl border border-gray-200 p-2 bg-white">
-              <MobileNavItem label="ACC"         to="/products?category=acc"        :active="isActive('acc')"        @click="open=false" />
-              <MobileNavItem label="BAG"         to="/products?category=bag"        :active="isActive('bag')"        @click="open=false" />
-              <MobileNavItem label="STATIONERY"  to="/products?category=stationery" :active="isActive('stationery')" @click="open=false" />
-              <MobileNavItem label="WALLET"      to="/products?category=wallet"     :active="isActive('wallet')"     @click="open=false" />
+              <MobileNavItem 
+                v-for="category in categories" 
+                :key="category.categoryId"
+                :label="category?.categoryName?.toUpperCase() || ''" 
+                :to="`/products?category=${category?.categoryName?.toLowerCase() || ''}`" 
+                :active="isActive(category?.categoryName?.toLowerCase() || '')" 
+                @click="open=false" 
+              />
               <div class="mt-2 flex gap-2">
                 <NuxtLink to="/cart" class="flex-1 inline-flex items-center justify-center h-10 rounded-lg border border-gray-200 text-gray-700 hover:border-gray-300" @click="open=false">Cart</NuxtLink>
                 <NuxtLink to="/login" class="flex-1 inline-flex items-center justify-center h-10 rounded-lg bg-gray-900 text-white hover:bg-black" @click="open=false">Login</NuxtLink>
@@ -100,4 +107,31 @@
 const open = ref(false)
 const { isScrolled } = useHeaderScroll()
 const { isActive } = useActiveCategory()
+
+// 카테고리 데이터 가져오기
+const config = useRuntimeConfig()
+const { data: categoriesData } = await useAsyncData('categories', () =>
+  $fetch('/categories', {
+    method: 'GET',
+    baseURL: config.public.apiBaseUrl
+  })
+)
+
+// 카테고리 데이터 안전하게 처리
+const categories = computed(() => {
+  // API 응답이 배열인지 확인
+  if (Array.isArray(categoriesData.value)) {
+    return categoriesData.value
+  }
+  // API 응답이 객체이고 data 속성이 있는 경우
+  if (categoriesData.value?.data && Array.isArray(categoriesData.value.data)) {
+    return categoriesData.value.data
+  }
+  // API 응답이 객체이고 content 속성이 있는 경우
+  if (categoriesData.value?.content && Array.isArray(categoriesData.value.content)) {
+    return categoriesData.value.content
+  }
+  // 기본값으로 빈 배열 반환
+  return []
+})
 </script>
