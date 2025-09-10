@@ -14,8 +14,8 @@
         <div v-if="cartItems.length === 0" class="text-center py-20">
           <h3 class="text-2xl font-light text-black mb-2">Your cart is empty</h3>
           <p class="text-sm text-gray-600 mb-8">Add some items to get started</p>
-          <NuxtLink to="/" class="inline-block bg-black text-white px-6 py-4 text-sm font-light tracking-wide transition-colors hover:bg-gray-800">
-            Back to Home
+          <NuxtLink to="/products" class="inline-block bg-black text-white px-6 py-4 text-sm font-light tracking-wide transition-colors hover:bg-gray-800">
+            Continue Shopping
           </NuxtLink>
         </div>
         

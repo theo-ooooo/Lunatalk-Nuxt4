@@ -13,12 +13,16 @@
       <div class="max-w-6xl mx-auto px-6">
         <div class="flex justify-between items-center mb-10">
           <h2 class="text-4xl font-light text-black tracking-tight">Featured</h2>
+          <NuxtLink to="/products" class="text-gray-600 text-sm font-light tracking-wide transition-colors hover:text-black">
+            View All
+          </NuxtLink>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          <div 
+          <NuxtLink 
             v-for="product in featuredProducts" 
             :key="product.id" 
-            class="group"
+            :to="`/products/${product.id}`"
+            class="group cursor-pointer"
           >
             <div class="relative overflow-hidden mb-4">
               <img 
@@ -38,7 +42,7 @@
               <p class="text-gray-600 mb-2 leading-snug text-xs font-light">{{ product.description }}</p>
               <div class="text-sm font-normal text-black">{{ formatPrice(product.price) }}</div>
             </div>
-          </div>
+          </NuxtLink>
         </div>
       </div>
     </section>
