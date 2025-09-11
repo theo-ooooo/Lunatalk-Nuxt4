@@ -104,6 +104,10 @@
 </template>
 
 <script setup lang="ts">
+// UI 관련 composables 직접 import
+import { useHeaderScroll } from '~/composables/ui/useHeaderScroll'
+import { useActiveCategory } from '~/composables/ui/useActiveCategory'
+
 const open = ref(false)
 const { isScrolled } = useHeaderScroll()
 const { isActive } = useActiveCategory()
