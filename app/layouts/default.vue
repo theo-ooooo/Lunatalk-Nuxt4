@@ -110,26 +110,25 @@ const { isActive } = useActiveCategory()
 
 // 카테고리 데이터 가져오기
 const config = useRuntimeConfig()
-const { data: categoriesData } = await useAsyncData('categories', () =>
-  $fetch('/categories', {
-    method: 'GET',
-    baseURL: config.public.apiBaseUrl
-  })
-)
+const { data: categoriesData } = await useFetch('/categories', {
+  baseURL: config.public.apiBaseUrl,
+  key: 'categories'
+})
 
 // 카테고리 데이터 안전하게 처리
 const categories = computed(() => {
+  const data = categoriesData.value as any
   // API 응답이 배열인지 확인
-  if (Array.isArray(categoriesData.value)) {
-    return categoriesData.value
+  if (Array.isArray(data)) {
+    return data
   }
   // API 응답이 객체이고 data 속성이 있는 경우
-  if (categoriesData.value?.data && Array.isArray(categoriesData.value.data)) {
-    return categoriesData.value.data
+  if (data?.data && Array.isArray(data.data)) {
+    return data.data
   }
   // API 응답이 객체이고 content 속성이 있는 경우
-  if (categoriesData.value?.content && Array.isArray(categoriesData.value.content)) {
-    return categoriesData.value.content
+  if (data?.content && Array.isArray(data.content)) {
+    return data.content
   }
   // 기본값으로 빈 배열 반환
   return []

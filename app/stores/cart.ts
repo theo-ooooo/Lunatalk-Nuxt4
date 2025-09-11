@@ -30,21 +30,19 @@ export const useCartStore = defineStore('cart', {
         const config = useRuntimeConfig()
         const authStore = useAuthStore()
         
-        const { data, error } = await useAsyncData('cart-items', () =>
-          $fetch('/cart-items', {
-            method: 'GET',
-            baseURL: config.public.apiBaseUrl,
-            headers: authStore.accessToken ? {
-              'Authorization': `Bearer ${authStore.accessToken}`
-            } : {}
-          })
-        )
+        const { data, error } = await useFetch('/cart-items', {
+          baseURL: config.public.apiBaseUrl,
+          headers: authStore.accessToken ? {
+            'Authorization': `Bearer ${authStore.accessToken}`
+          } : {},
+          key: 'cart-items'
+        })
         
         if (error.value) {
           throw error.value
         }
         
-        this.items = data.value
+        this.items = data.value as CartFindResponse[]
       } catch (error) {
         this.error = '장바구니를 불러오는데 실패했습니다.'
         console.error('Failed to fetch cart items:', error)
@@ -61,7 +59,7 @@ export const useCartStore = defineStore('cart', {
         const config = useRuntimeConfig()
         const authStore = useAuthStore()
         
-        const response = await $fetch('/cart-items', {
+        const { data: response } = await useFetch('/cart-items', {
           method: 'POST',
           baseURL: config.public.apiBaseUrl,
           headers: authStore.accessToken ? {
@@ -73,7 +71,7 @@ export const useCartStore = defineStore('cart', {
         // 장바구니 목록 새로고침
         await this.fetchCartItems()
         
-        return response
+        return response.value as any
       } catch (error) {
         this.error = '장바구니에 상품을 추가하는데 실패했습니다.'
         console.error('Failed to add item to cart:', error)
@@ -91,7 +89,7 @@ export const useCartStore = defineStore('cart', {
         const config = useRuntimeConfig()
         const authStore = useAuthStore()
         
-        await $fetch(`/cart-items/${cartItemId}`, {
+        await useFetch(`/cart-items/${cartItemId}`, {
           method: 'PUT',
           baseURL: config.public.apiBaseUrl,
           headers: authStore.accessToken ? {
@@ -119,7 +117,7 @@ export const useCartStore = defineStore('cart', {
         const config = useRuntimeConfig()
         const authStore = useAuthStore()
         
-        await $fetch(`/cart-items/${cartItemId}`, {
+        await useFetch(`/cart-items/${cartItemId}`, {
           method: 'DELETE',
           baseURL: config.public.apiBaseUrl,
           headers: authStore.accessToken ? {

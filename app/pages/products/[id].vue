@@ -1,7 +1,24 @@
 <template>
   <div class="min-h-screen">
+    <!-- 로딩 상태 -->
+    <section v-if="productLoading" class="py-20 text-center">
+      <div class="max-w-6xl mx-auto px-5">
+        <div class="text-lg font-light text-gray-600">Loading product...</div>
+      </div>
+    </section>
+
+    <!-- 에러 상태 -->
+    <section v-else-if="productError" class="py-20 text-center">
+      <div class="max-w-6xl mx-auto px-5">
+        <div class="text-lg font-light text-red-600 mb-4">Failed to load product</div>
+        <NuxtLink to="/products" class="inline-block bg-black text-white px-6 py-4 text-sm font-light tracking-wide transition-colors hover:bg-gray-800 border border-black">
+          Back to Products
+        </NuxtLink>
+      </div>
+    </section>
+
     <!-- 상품 상세 정보 -->
-    <section v-if="product" class="py-10">
+    <section v-else-if="product" class="py-10">
       <div class="max-w-6xl mx-auto px-5">
         <!-- 브레드크럼 -->
         <nav class="py-5 flex items-center gap-2 text-xs font-light">
@@ -12,89 +29,136 @@
           <span class="text-black">{{ product.name }}</span>
         </nav>
 
+        <!-- 윗단: 상품 이미지와 정보 -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-20 mt-10">
           <!-- 상품 이미지 -->
           <div class="flex flex-col gap-4">
             <div class="overflow-hidden">
-              <img :src="product.image" :alt="product.name" class="w-full h-96 object-cover" />
+              <img 
+                :src="getCurrentMainImage()" 
+                :alt="product.name" 
+                class="w-full h-80 object-cover" 
+              />
             </div>
-            <div class="flex gap-2">
+            <div v-if="product && product.images && product.images.filter(img => img.imageType === 'PRODUCT_CONTENT').length > 0" class="flex gap-2 overflow-x-auto">
               <div 
-                v-for="(image, index) in product.images" 
-                :key="index"
-                class="w-20 h-20 overflow-hidden cursor-pointer border transition-colors"
+                v-for="(image, index) in product.images.filter(img => img.imageType === 'PRODUCT_CONTENT')" 
+                :key="`content-${index}`"
+                class="w-20 h-20 overflow-hidden cursor-pointer border transition-colors flex-shrink-0"
                 :class="selectedImage === index ? 'border-black' : 'border-transparent'"
                 @click="selectedImage = index"
               >
-                <img :src="image" :alt="`${product.name} ${index + 1}`" class="w-full h-full object-cover" />
+                <img :src="getProductImageUrl(image)" :alt="`${product.name} ${index + 1}`" class="w-full h-full object-cover" />
               </div>
             </div>
           </div>
 
           <!-- 상품 정보 -->
-          <div class="flex flex-col gap-6">
-            <div class="flex justify-between items-start gap-4">
-              <h1 class="text-4xl font-light text-black tracking-tight leading-tight flex-1">{{ product.name }}</h1>
-              <div class="flex gap-2">
-                <span v-if="product.isNew" class="bg-black text-white px-2 py-1 text-xs font-normal tracking-wide">NEW</span>
-                <span v-if="product.isBest" class="bg-gray-600 text-white px-2 py-1 text-xs font-normal tracking-wide">BEST</span>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-4">
-              <span class="text-2xl font-normal text-black">{{ formatPrice(product.price) }}</span>
-              <span v-if="product.originalPrice" class="text-lg text-gray-400 line-through">{{ formatPrice(product.originalPrice) }}</span>
-              <span v-if="product.discount" class="bg-black text-white px-2 py-1 text-xs font-normal tracking-wide">{{ product.discount }}% 할인</span>
-            </div>
-
+          <div class="flex flex-col gap-8">
+            <!-- 상품명 -->
             <div>
-              <p class="text-gray-600 leading-relaxed text-sm font-light">{{ product.description }}</p>
+              <h1 class="text-3xl font-bold text-black mb-2">{{ product.name }}</h1>
             </div>
 
-            <div class="border-t border-gray-200 pt-6">
-              <h3 class="text-base font-normal text-black mb-4 tracking-wide">Features</h3>
-              <ul class="space-y-2">
-                <li v-for="feature in product.features" :key="feature" class="text-gray-600 text-sm font-light flex items-start">
-                  <span class="text-black font-bold mr-2">•</span>
-                  {{ feature }}
-                </li>
-              </ul>
+            <!-- 가격 정보 -->
+            <div class="flex items-center gap-3">
+              <span class="text-2xl font-bold text-black">{{ formatPrice(product.price) }}</span>
+              <span v-if="product.originalPrice && product.originalPrice > product.price" class="text-lg text-gray-500 line-through">{{ formatPrice(product.originalPrice) }}</span>
             </div>
 
-            <div class="flex items-center gap-4">
-              <label class="text-sm font-light text-black tracking-wide">Quantity:</label>
-              <div class="flex items-center border border-gray-200">
-                <button @click="decreaseQuantity" class="bg-white px-4 py-3 text-base font-light transition-colors hover:bg-gray-50 text-black">-</button>
-                <span class="px-4 py-3 min-w-16 text-center font-light text-sm text-black">{{ quantity }}</span>
-                <button @click="increaseQuantity" class="bg-white px-4 py-3 text-base font-light transition-colors hover:bg-gray-50 text-black">+</button>
+            <!-- 리뷰 정보 -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-gray-600">0 리뷰</span>
+            </div>
+
+            <!-- 색상 선택 -->
+            <div v-if="product.colors && product.colors.length > 0">
+              <h3 class="text-sm font-medium text-black mb-3">색상</h3>
+              <div class="flex gap-2">
+                <button 
+                  v-for="color in product.colors" 
+                  :key="color"
+                  class="px-4 py-2 border border-gray-300 text-sm hover:border-black transition-colors"
+                  :class="selectedColor === color ? 'border-black bg-gray-50' : 'bg-white'"
+                  @click="selectedColor = color"
+                >
+                  {{ color }}
+                </button>
               </div>
             </div>
 
-            <div class="flex gap-4">
-              <button class="flex-1 px-6 py-4 border border-gray-200 text-sm font-light tracking-wide transition-all hover:bg-gray-50 hover:border-black text-black" @click="addToCart">
-                Add to Cart
-              </button>
-              <button class="flex-1 px-6 py-4 bg-black text-white text-sm font-light tracking-wide transition-colors hover:bg-gray-800" @click="buyNow">
-                Buy Now
-              </button>
+            <!-- 수량 조절 -->
+            <div class="flex items-center gap-4">
+              <h3 class="text-sm font-medium text-black">수량</h3>
+              <div class="flex items-center border border-gray-300">
+                <button @click="decreaseQuantity" class="px-3 py-2 hover:bg-gray-50 text-lg">-</button>
+                <span class="px-4 py-2 min-w-12 text-center text-sm">{{ quantity }}</span>
+                <button @click="increaseQuantity" class="px-3 py-2 hover:bg-gray-50 text-lg">+</button>
+              </div>
             </div>
 
-            <div class="border-t border-gray-200 pt-6">
-              <h3 class="text-base font-normal text-black mb-4 tracking-wide">Shipping Information</h3>
-              <ul class="space-y-2">
-                <li class="text-gray-600 text-sm font-light flex items-start">
-                  <span class="text-black font-bold mr-2">•</span>
-                  Free shipping on orders over ₩50,000
-                </li>
-                <li class="text-gray-600 text-sm font-light flex items-start">
-                  <span class="text-black font-bold mr-2">•</span>
-                  Standard delivery: 2-3 business days
-                </li>
-                <li class="text-gray-600 text-sm font-light flex items-start">
-                  <span class="text-black font-bold mr-2">•</span>
-                  Same-day delivery: Orders before 2 PM
-                </li>
-              </ul>
+            <!-- 총 상품 가격 -->
+            <div class="border-t border-gray-200 pt-4">
+              <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-black">총 상품 가격</span>
+                <span class="text-lg font-bold text-black">{{ formatPrice(product.price * quantity) }}</span>
+              </div>
+            </div>
+
+            <!-- 구매 버튼 -->
+            <div class="flex gap-3">
+              <button class="flex-1 px-6 py-4 bg-black text-white font-medium hover:bg-gray-800 transition-colors" @click="buyNow">
+                구매하기
+              </button>
+              <button class="flex-1 px-6 py-4 border border-gray-300 text-black font-medium hover:bg-gray-50 transition-colors" @click="addToCart">
+                장바구니
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 아랫단: 탭 메뉴 (가로사이즈 100%) -->
+        <div class="w-full mt-20">
+          <!-- 탭 메뉴 -->
+          <div class="border-t border-gray-200 pt-6">
+            <div class="flex">
+              <button 
+                v-for="tab in tabs" 
+                :key="tab.id"
+                class="flex-1 text-sm font-medium pb-2 border-b-2 transition-colors"
+                :class="activeTab === tab.id ? 'border-black text-black' : 'border-transparent text-gray-500'"
+                @click="activeTab = tab.id"
+              >
+                {{ tab.name }}
+              </button>
+            </div>
+            
+            <!-- 탭 컨텐츠 -->
+            <div class="mt-6">
+              <div v-if="activeTab === 'order'" class="text-sm text-gray-600">
+                <p>주문 정보가 여기에 표시됩니다.</p>
+              </div>
+              <div v-else-if="activeTab === 'product'" class="text-sm text-gray-600">
+                <div v-if="product && product.images && product.images.filter(img => img.imageType === 'PRODUCT_CONTENT').length > 0" class="space-y-4">
+                  <div 
+                    v-for="(image, index) in product.images.filter(img => img.imageType === 'PRODUCT_CONTENT')" 
+                    :key="`content-${index}`"
+                    class="w-full"
+                  >
+                    <img 
+                      :src="getProductImageUrl(image)" 
+                      :alt="`${product.name} 상품 이미지 ${index + 1}`" 
+                      class="w-full h-auto object-cover" 
+                    />
+                  </div>
+                </div>
+                <div v-else class="text-gray-500">
+                  <p>상품 이미지가 없습니다.</p>
+                </div>
+              </div>
+              <div v-else-if="activeTab === 'review'" class="text-sm text-gray-600">
+                <p>리뷰가 여기에 표시됩니다.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -113,19 +177,19 @@
     </section>
 
     <!-- 관련 상품 -->
-    <section v-if="product" class="bg-white py-20 border-t border-gray-200">
+    <section v-if="product && relatedProducts.length > 0" class="bg-white py-20 border-t border-gray-200">
       <div class="max-w-6xl mx-auto px-5">
         <h2 class="text-4xl font-light text-black mb-10 tracking-tight text-center">Related Products</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
           <NuxtLink 
             v-for="relatedProduct in relatedProducts" 
-            :key="relatedProduct.id" 
-            :to="`/products/${relatedProduct.id}`"
+            :key="relatedProduct.productId" 
+            :to="`/products/${relatedProduct.productId}`"
             class="group cursor-pointer"
           >
             <div class="relative overflow-hidden mb-4">
               <img 
-                :src="relatedProduct.image" 
+                :src="getProductImage(relatedProduct)" 
                 :alt="relatedProduct.name" 
                 class="w-full h-80 object-cover transition-transform duration-300 group-hover:scale-105"
               />
@@ -144,7 +208,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 // 라우트 파라미터 가져오기
 const route = useRoute()
 const productId = route.params.id
@@ -152,114 +216,74 @@ const productId = route.params.id
 // 반응형 데이터
 const selectedImage = ref(0)
 const quantity = ref(1)
+const selectedColor = ref('')
+const activeTab = ref('product')
 
-// 상품 데이터 (실제로는 API에서 가져와야 함)
-const products = ref([
-  {
-    id: 1,
-    name: 'Minimalist Watch',
-    description: 'Clean and timeless design with premium materials. Perfect for everyday wear and special occasions.',
-    price: 299000,
-    originalPrice: 399000,
-    discount: 25,
-    rating: 4.8,
-    reviewCount: 1247,
-    isNew: true,
-    isBest: true,
-    category: 'acc',
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop',
-    images: [
-      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=600&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1594534475808-b18fc33b045e?w=600&h=600&fit=crop'
-    ],
-    features: [
-      'Swiss movement',
-      'Sapphire crystal glass',
-      'Water resistant to 50m',
-      'Genuine leather strap',
-      '2-year warranty'
-    ]
-  },
-  {
-    id: 2,
-    name: 'Canvas Tote Bag',
-    description: 'Spacious and durable canvas tote bag perfect for daily use. Features multiple compartments and reinforced handles.',
-    price: 89000,
-    rating: 4.6,
-    reviewCount: 892,
-    isNew: false,
-    isBest: true,
-    category: 'bag',
-    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=600&fit=crop',
-    images: [
-      'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1594223274512-ad4803739b7c?w=600&h=600&fit=crop'
-    ],
-    features: [
-      '100% organic cotton canvas',
-      'Reinforced handles',
-      'Multiple interior pockets',
-      'Machine washable',
-      'Dimensions: 40cm x 35cm x 15cm'
-    ]
-  },
-  {
-    id: 3,
-    name: 'Premium Notebook Set',
-    description: 'High-quality paper notebook set with elegant design. Perfect for writing, sketching, and note-taking.',
-    price: 45000,
-    rating: 4.5,
-    reviewCount: 456,
-    isNew: true,
-    isBest: false,
-    category: 'stationery',
-    image: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&h=600&fit=crop',
-    images: [
-      'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=600&h=600&fit=crop'
-    ],
-    features: [
-      'Premium paper quality',
-      'Lay-flat binding',
-      'Elastic closure',
-      'Ribbon bookmark',
-      'Set of 3 notebooks'
-    ]
-  },
-  {
-    id: 4,
-    name: 'Leather Card Holder',
-    description: 'Slim and elegant leather card holder with RFID blocking technology. Holds up to 8 cards comfortably.',
-    price: 129000,
-    rating: 4.7,
-    reviewCount: 234,
-    isNew: false,
-    isBest: true,
-    category: 'wallet',
-    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=600&fit=crop',
-    images: [
-      'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&h=600&fit=crop',
-      'https://images.unsplash.com/photo-1594223274512-ad4803739b7c?w=600&h=600&fit=crop'
-    ],
-    features: [
-      'Genuine Italian leather',
-      'RFID blocking technology',
-      'Holds up to 8 cards',
-      'Slim profile design',
-      'Handcrafted construction'
-    ]
-  }
-])
+// 탭 메뉴
+const tabs = [
+  { id: 'order', name: '주문 정보' },
+  { id: 'product', name: '상품 정보' },
+  { id: 'review', name: '리뷰' }
+]
 
-// 현재 상품 찾기
+// API 설정
+const config = useRuntimeConfig()
+
+// 상품 데이터 가져오기
+const { data: productResponse, pending: productLoading, error: productError } = await useFetch(`/products/${productId}`, {
+  baseURL: config.public.apiBaseUrl,
+  key: `product-${productId}`
+})
+
+// API 응답에서 실제 상품 데이터 추출
 const product = computed(() => {
-  return products.value.find(p => p.id === parseInt(productId))
+  const response = productResponse.value as any
+  return response?.data || response
+})
+
+// 컨텐츠 이미지가 변경될 때 selectedImage 초기화
+watch(() => product.value?.images, (newImages) => {
+  if (newImages && Array.isArray(newImages)) {
+    const contentImages = newImages.filter((img: any) => img.imageType === 'PRODUCT_CONTENT')
+    if (contentImages.length > 0) {
+      // selectedImage가 유효한 범위를 벗어나면 0으로 초기화
+      if (selectedImage.value >= contentImages.length) {
+        selectedImage.value = 0
+      }
+    } else {
+      // 컨텐츠 이미지가 없으면 0으로 초기화
+      selectedImage.value = 0
+    }
+  }
+}, { immediate: true })
+
+// 색상이 변경될 때 첫 번째 색상 자동 선택
+watch(() => product.value?.colors, (newColors) => {
+  if (newColors && Array.isArray(newColors) && newColors.length > 0) {
+    selectedColor.value = newColors[0]
+  }
+}, { immediate: true })
+
+// 관련 상품 가져오기 (같은 카테고리의 다른 상품들)
+const { data: relatedProductsData } = await useFetch('/products', {
+  baseURL: config.public.apiBaseUrl,
+  key: `related-products-${productId}`,
+  query: computed(() => {
+    if (product.value?.category?.categoryId) {
+      return {
+        categoryId: product.value.category.categoryId,
+        pageable: { page: 0, size: 3 }
+      }
+    }
+    return { pageable: { page: 0, size: 3 } }
+  }),
+  watch: [() => product.value?.category?.categoryId]
 })
 
 // 관련 상품 (현재 상품 제외)
 const relatedProducts = computed(() => {
-  return products.value.filter(p => p.id !== parseInt(productId)).slice(0, 3)
+  if (!relatedProductsData.value?.products) return []
+  return relatedProductsData.value.products.filter(p => p.productId !== parseInt(productId)).slice(0, 3)
 })
 
 // 메타 정보 설정
@@ -293,8 +317,92 @@ const buyNow = () => {
   alert(`${product.value.name}을(를) ${quantity.value}개 바로 구매합니다.`)
 }
 
+// 현재 메인 이미지 가져오기 (컨텐츠 이미지 선택 시 해당 이미지, 아니면 썸네일)
+const getCurrentMainImage = () => {
+  if (product.value?.images && Array.isArray(product.value.images) && product.value.images.length > 0) {
+    const contentImages = product.value.images.filter((img: any) => img.imageType === 'PRODUCT_CONTENT')
+    
+    // 컨텐츠 이미지가 있고 선택된 인덱스가 유효한 경우
+    if (contentImages.length > 0 && selectedImage.value >= 0 && selectedImage.value < contentImages.length) {
+      const selectedImg = contentImages[selectedImage.value]
+      if (selectedImg?.imageUrl) {
+        return `https://media-v2.lunatalk.co.kr/${selectedImg.imageUrl}`
+      }
+    }
+    
+    // 컨텐츠 이미지가 없거나 선택된 인덱스가 유효하지 않은 경우 썸네일
+    const thumbnailImage = product.value.images.find((img: any) => img.imageType === 'PRODUCT_THUMBNAIL')
+    if (thumbnailImage?.imageUrl) {
+      return `https://media-v2.lunatalk.co.kr/${thumbnailImage.imageUrl}`
+    }
+    
+    // 썸네일도 없으면 첫 번째 이미지
+    if (product.value.images[0]?.imageUrl) {
+      return `https://media-v2.lunatalk.co.kr/${product.value.images[0].imageUrl}`
+    }
+  }
+  // 기본 이미지
+  return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop'
+}
+
+// 메인 상품 이미지 가져오기 (썸네일 우선)
+const getMainProductImage = () => {
+  if (product.value?.images && product.value.images.length > 0) {
+    // 썸네일 이미지 찾기
+    const thumbnailImage = product.value.images.find((img: any) => img.imageType === 'PRODUCT_THUMBNAIL')
+    if (thumbnailImage) {
+      return `https://media-v2.lunatalk.co.kr/${thumbnailImage.imageUrl}`
+    }
+    // 썸네일이 없으면 첫 번째 이미지
+    return `https://media-v2.lunatalk.co.kr/${product.value.images[0].imageUrl}`
+  }
+  // 기본 이미지
+  return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop'
+}
+
+// 상품 이미지 가져오기 (썸네일 우선, 없으면 첫 번째 이미지)
+const getProductImage = (product: any) => {
+  if (product.images && product.images.length > 0) {
+    // 썸네일 이미지 찾기
+    const thumbnailImage = product.images.find((img: any) => img.imageType === 'PRODUCT_THUMBNAIL')
+    if (thumbnailImage) {
+      return `https://media-v2.lunatalk.co.kr/${thumbnailImage.imageUrl}`
+    }
+    // 썸네일이 없으면 첫 번째 이미지
+    return `https://media-v2.lunatalk.co.kr/${product.images[0].imageUrl}`
+  }
+  // 기본 이미지
+  return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop'
+}
+
+// 상품 이미지 URL 가져오기
+const getProductImageUrl = (image: any) => {
+  if (typeof image === 'string') {
+    return `https://media-v2.lunatalk.co.kr/${image}`
+  }
+  return `https://media-v2.lunatalk.co.kr/${image.imageUrl}`
+}
+
+// 색상 값 변환
+const getColorValue = (color: string) => {
+  const colorMap: Record<string, string> = {
+    'Black': '#000000',
+    'White': '#FFFFFF',
+    'Red': '#FF0000',
+    'Blue': '#0000FF',
+    'Green': '#008000',
+    'Yellow': '#FFFF00',
+    'Pink': '#FFC0CB',
+    'Purple': '#800080',
+    'Orange': '#FFA500',
+    'Gray': '#808080',
+    'Brown': '#A52A2A'
+  }
+  return colorMap[color] || '#CCCCCC'
+}
+
 // 가격 포맷팅 함수
-const formatPrice = (price) => {
+const formatPrice = (price: number) => {
   return new Intl.NumberFormat('ko-KR', {
     style: 'currency',
     currency: 'KRW'

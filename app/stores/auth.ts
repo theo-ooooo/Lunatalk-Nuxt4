@@ -28,26 +28,26 @@ export const useAuthStore = defineStore('auth', {
       this.isLoading = true
       try {
         const config = useRuntimeConfig()
-        const response = await $fetch('/auth/login', {
+        const { data: response } = await useFetch('/auth/login', {
           method: 'POST',
           baseURL: config.public.apiBaseUrl,
           body: { username, password }
         })
         
-        this.accessToken = response.accessToken
-        this.refreshToken = response.refreshToken
+        this.accessToken = (response.value as any).accessToken
+        this.refreshToken = (response.value as any).refreshToken
         this.isAuthenticated = true
         
         // 토큰을 localStorage에 저장
         if (process.client) {
-          localStorage.setItem('auth_token', this.accessToken)
-          localStorage.setItem('refresh_token', this.refreshToken)
+          localStorage.setItem('auth_token', this.accessToken!)
+          localStorage.setItem('refresh_token', this.refreshToken!)
         }
         
         // 사용자 정보 가져오기
         await this.fetchUserInfo()
         
-        return response
+        return response.value
       } catch (error) {
         console.error('Login failed:', error)
         throw error
@@ -60,25 +60,25 @@ export const useAuthStore = defineStore('auth', {
       this.isLoading = true
       try {
         const config = useRuntimeConfig()
-        const response = await $fetch('/auth/register', {
+        const { data: response } = await useFetch('/auth/register', {
           method: 'POST',
           baseURL: config.public.apiBaseUrl,
           body: userData
         })
         
-        this.accessToken = response.accessToken
-        this.refreshToken = response.refreshToken
+        this.accessToken = (response.value as any).accessToken
+        this.refreshToken = (response.value as any).refreshToken
         this.isAuthenticated = true
         
         if (process.client) {
-          localStorage.setItem('auth_token', this.accessToken)
-          localStorage.setItem('refresh_token', this.refreshToken)
+          localStorage.setItem('auth_token', this.accessToken!)
+          localStorage.setItem('refresh_token', this.refreshToken!)
         }
         
         // 사용자 정보 가져오기
         await this.fetchUserInfo()
         
-        return response
+        return response.value
       } catch (error) {
         console.error('Registration failed:', error)
         throw error
@@ -90,25 +90,23 @@ export const useAuthStore = defineStore('auth', {
     async fetchUserInfo() {
       try {
         const config = useRuntimeConfig()
-        const { data, error } = await useAsyncData('user-info', () =>
-          $fetch('/members/me', {
-            method: 'GET',
-            baseURL: config.public.apiBaseUrl,
-            headers: this.accessToken ? {
-              'Authorization': `Bearer ${this.accessToken}`
-            } : {}
-          })
-        )
+        const { data, error } = await useFetch('/members/me', {
+          baseURL: config.public.apiBaseUrl,
+          headers: this.accessToken ? {
+            'Authorization': `Bearer ${this.accessToken}`
+          } : {},
+          key: 'user-info'
+        })
         
         if (error.value) {
           throw error.value
         }
         
-        this.user = data.value
+        this.user = data.value as MemberInfoResponse
       } catch (error) {
         console.error('Failed to fetch user info:', error)
         // 토큰이 만료된 경우 로그아웃
-        if (error.status === 401) {
+        if ((error as any).status === 401) {
           this.logout()
         }
       }
@@ -119,18 +117,18 @@ export const useAuthStore = defineStore('auth', {
       
       try {
         const config = useRuntimeConfig()
-        const response = await $fetch('/auth/reissue', {
+        const { data: response } = await useFetch('/auth/reissue', {
           method: 'POST',
           baseURL: config.public.apiBaseUrl,
           body: { refreshToken: this.refreshToken }
         })
         
-        this.accessToken = response.accessToken
-        this.refreshToken = response.refreshToken
+        this.accessToken = (response.value as any).accessToken
+        this.refreshToken = (response.value as any).refreshToken
         
         if (process.client) {
-          localStorage.setItem('auth_token', this.accessToken)
-          localStorage.setItem('refresh_token', this.refreshToken)
+          localStorage.setItem('auth_token', this.accessToken!)
+          localStorage.setItem('refresh_token', this.refreshToken!)
         }
         
         return true
@@ -145,7 +143,7 @@ export const useAuthStore = defineStore('auth', {
       try {
         const config = useRuntimeConfig()
         if (this.accessToken) {
-          await $fetch('/auth/withdraw', {
+          await useFetch('/auth/withdraw', {
             method: 'DELETE',
             baseURL: config.public.apiBaseUrl,
             headers: {

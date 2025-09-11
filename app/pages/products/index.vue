@@ -49,7 +49,7 @@
       <div class="max-w-6xl mx-auto px-5 text-center">
         <div class="text-lg font-light text-red-600 mb-4">{{ error }}</div>
         <button 
-          @click="fetchProducts" 
+          @click="refreshProducts" 
           class="px-6 py-3 bg-black text-white text-sm font-light hover:bg-gray-800 transition-colors"
         >
           Try Again
@@ -130,82 +130,78 @@ const route = useRoute()
 const categoryName = computed(() => route.query.category || '')
 
 // 카테고리 데이터 가져오기
-const { data: categoriesData, pending: categoriesLoading, error: categoriesError } = await useAsyncData('categories', () =>
-  $fetch('/categories', {
-    method: 'GET',
-    baseURL: config.public.apiBaseUrl
-  })
-)
+const { data: categoriesData, pending: categoriesLoading, error: categoriesError } = await useFetch('/categories', {
+  baseURL: config.public.apiBaseUrl,
+  key: 'categories'
+})
 
 // 상품 데이터 가져오기 (카테고리별)
-const { data: productsData, pending: productsLoading, error: productsError, refresh: refreshProducts } = await useAsyncData<{ data: CategoryProductsResponse }>('products', () => {
+const { data: productsData, pending: productsLoading, error: productsError, refresh: refreshProducts } = await useFetch(() => {
   // 카테고리가 있으면 카테고리별 상품 API 호출
   if (categoryName.value) {
     console.log('categoryName from URL:', categoryName.value)
     // 카테고리 이름으로 카테고리 ID 찾기
-    const categoryList = categoriesData.value?.data || categoriesData.value || []
-    const category = categoryList.find(cat => 
-      cat.categoryName.toLowerCase() === categoryName.value.toLowerCase()
+    const categoryList = (categoriesData.value as any)?.data || categoriesData.value || []
+    const category = categoryList.find((cat: any) => 
+      cat.categoryName.toLowerCase() === (categoryName.value as string).toLowerCase()
     )
     if (category) {
       console.log('Found category:', category.categoryName, 'ID:', category.categoryId)
-      return $fetch(`/categories/${category.categoryId}/products`, {
-        method: 'GET',
-        baseURL: config.public.apiBaseUrl,
-        query: {
-          pageable: { page: 0, size: 100 }
-        }
-      })
-    } else {
-      console.log('Category not found')
-      return Promise.resolve({ data: { content: [] } })
+      return `/categories/${category.categoryId}/products`
     }
   }
   
-  // 카테고리가 없으면 빈 배열 반환
+  // 카테고리가 없으면 기본 상품 목록
   console.log('No category selected')
-  return Promise.resolve({ data: { content: [] } })
+  return '/products'
 }, {
+  baseURL: config.public.apiBaseUrl,
+  key: 'products',
+  query: computed(() => ({
+    pageable: { page: 0, size: 100 }
+  })),
   watch: [categoryName] // 카테고리가 변경될 때마다 새로 가져오기
 })
 
 // 반응형 데이터
 const allProducts = computed(() => {
+  const data = productsData.value as any
   // API 응답이 배열인지 확인
-  if (Array.isArray(productsData.value)) {
-    return productsData.value
+  if (Array.isArray(data)) {
+    return data
   }
   // 카테고리별 상품 API 응답: data.products
-  if (productsData.value?.data?.products && Array.isArray(productsData.value.data.products)) {
-    return productsData.value.data.products
+  if (data?.data?.products && Array.isArray(data.data.products)) {
+    return data.data.products
   }
   // API 응답이 객체이고 data.content 속성이 있는 경우
-  if (productsData.value?.data?.content && Array.isArray(productsData.value.data.content)) {
-    return productsData.value.data.content
+  if (data?.data?.content && Array.isArray(data.data.content)) {
+    return data.data.content
   }
   // API 응답이 객체이고 data 속성이 있는 경우
-  if (productsData.value?.data && Array.isArray(productsData.value.data)) {
-    return productsData.value.data
+  if (data?.data && Array.isArray(data.data)) {
+    return data.data
   }
   // API 응답이 객체이고 content 속성이 있는 경우
-  if (productsData.value?.content && Array.isArray(productsData.value.content)) {
-    return productsData.value.content
+  if (data?.content && Array.isArray(data.content)) {
+    return data.content
   }
   // 기본값으로 빈 배열 반환
   return []
 })
 const categories = computed(() => {
+  const data = categoriesData.value as any
   // API 응답이 배열인지 확인
-  if (Array.isArray(categoriesData.value)) {
-    return categoriesData.value
+  if (Array.isArray(data)) {
+    return data
   }
   // API 응답이 객체이고 data 속성이 있는 경우
-  if (categoriesData.value?.data && Array.isArray(categoriesData.value.data)) {
-    return categoriesData.value.data
+  if (data?.data && Array.isArray(data.data)) {
+    return data.data
   }
   // API 응답이 객체이고 content 속성이 있는 경우
-  if (categoriesData.value?.content && Array.isArray(categoriesData.value.content)) {
-    return categoriesData.value.content
+  if (data?.content && Array.isArray(data.content)) {
+    return data.content
   }
   // 기본값으로 빈 배열 반환
   return []
@@ -246,7 +242,7 @@ const filteredProducts = computed(() => {
 })
 
 // 검색 처리 (디바운스)
-let searchTimeout
+let searchTimeout: ReturnType<typeof setTimeout>
 const handleSearch = () => {
   clearTimeout(searchTimeout)
   searchTimeout = setTimeout(() => {
@@ -255,9 +251,15 @@ const handleSearch = () => {
 }
 
 
-// 상품 이미지 가져오기
-const getProductImage = (product) => {
+// 상품 이미지 가져오기 (썸네일 우선, 없으면 첫 번째 이미지)
+const getProductImage = (product: any) => {
   if (product.images && product.images.length > 0) {
+    // 썸네일 이미지 찾기
+    const thumbnailImage = product.images.find((img: any) => img.imageType === 'PRODUCT_THUMBNAIL')
+    if (thumbnailImage) {
+      return `https://media-v2.lunatalk.co.kr/${thumbnailImage.imageUrl}`
+    }
+    // 썸네일이 없으면 첫 번째 이미지
     return `https://media-v2.lunatalk.co.kr/${product.images[0].imageUrl}`
   }
   // 기본 이미지
@@ -265,8 +267,8 @@ const getProductImage = (product) => {
 }
 
 // 색상 값 변환
-const getColorValue = (color) => {
-  const colorMap = {
+const getColorValue = (color: string) => {
+  const colorMap: Record<string, string> = {
     'Black': '#000000',
     'White': '#FFFFFF',
     'Red': '#FF0000',
@@ -285,8 +287,8 @@ const getColorValue = (color) => {
 // 카테고리별 제목과 설명
 const getCategoryTitle = () => {
   if (categoryName.value) {
-    const selectedCategory = categories.value.find(cat => 
-      cat.categoryName.toLowerCase() === categoryName.value.toLowerCase()
+    const selectedCategory = categories.value.find((cat: any) => 
+      cat.categoryName.toLowerCase() === (categoryName.value as string).toLowerCase()
     )
     return selectedCategory?.categoryName || 'Products'
   }
@@ -301,7 +303,7 @@ const getCategoryDescription = () => {
 }
 
 // 가격 포맷팅 함수
-const formatPrice = (price) => {
+const formatPrice = (price: number) => {
   return new Intl.NumberFormat('ko-KR', {
     style: 'currency',
     currency: 'KRW'

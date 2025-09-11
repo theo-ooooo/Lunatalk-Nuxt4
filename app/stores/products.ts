@@ -79,24 +79,21 @@ export const useProductsStore = defineStore('products', {
       
       try {
         const config = useRuntimeConfig()
-        const { data, error } = await useAsyncData('products', () => 
-          $fetch('/products', {
-            method: 'GET',
-            baseURL: config.public.apiBaseUrl,
-            query: params || {
-              pageable: {
-                page: this.pagination.page,
-                size: this.pagination.size
-              }
+        const { data, error } = await useFetch('/products', {
+          baseURL: config.public.apiBaseUrl,
+          query: params || {
+            pageable: {
+              page: this.pagination.page,
+              size: this.pagination.size
             }
-          })
-        )
+          }
+        })
         
         if (error.value) {
           throw error.value
         }
         
-        const response: CategoryProductsResponse = data.value
+        const response: CategoryProductsResponse = data.value as CategoryProductsResponse
         this.products = response.products
         this.pagination = {
           page: 0,
@@ -118,18 +115,16 @@ export const useProductsStore = defineStore('products', {
       
       try {
         const config = useRuntimeConfig()
-        const { data, error } = await useAsyncData(`product-${id}`, () =>
-          $fetch(`/products/${id}`, {
-            method: 'GET',
-            baseURL: config.public.apiBaseUrl
-          })
-        )
+        const { data, error } = await useFetch(`/products/${id}`, {
+          baseURL: config.public.apiBaseUrl,
+          key: `product-${id}`
+        })
         
         if (error.value) {
           throw error.value
         }
         
-        this.currentProduct = data.value
+        this.currentProduct = data.value as ProductFindResponse
       } catch (error) {
         this.error = '상품 정보를 불러오는데 실패했습니다.'
         console.error('Failed to fetch product:', error)
@@ -141,18 +136,16 @@ export const useProductsStore = defineStore('products', {
     async fetchCategories() {
       try {
         const config = useRuntimeConfig()
-        const { data, error } = await useAsyncData('categories', () =>
-          $fetch('/categories', {
-            method: 'GET',
-            baseURL: config.public.apiBaseUrl
-          })
-        )
+        const { data, error } = await useFetch('/categories', {
+          baseURL: config.public.apiBaseUrl,
+          key: 'categories'
+        })
         
         if (error.value) {
           throw error.value
         }
         
-        this.categories = data.value
+        this.categories = data.value as CategoryResponse[]
       } catch (error) {
         console.error('Failed to fetch categories:', error)
       }
@@ -164,18 +157,16 @@ export const useProductsStore = defineStore('products', {
       
       try {
         const config = useRuntimeConfig()
-        const { data, error } = await useAsyncData(`category-products-${categoryId}`, () =>
-          $fetch(`/categories/${categoryId}/products`, {
-            method: 'GET',
-            baseURL: config.public.apiBaseUrl
-          })
-        )
+        const { data, error } = await useFetch(`/categories/${categoryId}/products`, {
+          baseURL: config.public.apiBaseUrl,
+          key: `category-products-${categoryId}`
+        })
         
         if (error.value) {
           throw error.value
         }
         
-        this.products = data.value.products
+        this.products = (data.value as any).products
       } catch (error) {
         this.error = '카테고리 상품을 불러오는데 실패했습니다.'
         console.error('Failed to fetch category products:', error)
